@@ -2,8 +2,8 @@ const std = @import("std");
 const AutoHashMap = std.hash_map.AutoHashMap;
 
 pub fn main() !void {
-    try test1();
-    try test2();
+    std.debug.print("Test1... {s}\n", .{if (try test1()) "passed" else "failed"});
+    std.debug.print("Test2... {s}\n", .{if (try test2()) "passed" else "failed"});
 }
 
 pub fn hasDuplicates(nums: *const [4]u32) bool {
@@ -35,12 +35,14 @@ test "has no duplicates returns false" {
     try test2();
 }
 
-pub fn test1() !void {
+pub fn test1() !bool {
     const nums = [_]u32{ 1, 2, 3, 3 };
-    try std.testing.expect(hasDuplicates(&nums));
+    std.testing.expect(hasDuplicates(&nums)) catch return false;
+    return true;
 }
 
-pub fn test2() !void {
+pub fn test2() !bool {
     const nums = [_]u32{ 1, 2, 3, 4 };
-    try std.testing.expectEqual(hasDuplicates(&nums), false);
+    std.testing.expectEqual(hasDuplicates(&nums), false) catch return false;
+    return true;
 }

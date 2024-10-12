@@ -22,25 +22,20 @@ const Solution = struct {
     }
 
     pub fn twoSum(self: Solution, nums: []const i32, target: i32) [2]u16 {
-        var result = [2]u16{ 0, 0 };
-        result[1] = 1;
-
         var map = AutoHashMap(i32, u16).init(self.allocator);
         defer map.deinit();
 
         for (nums, 0..nums.len) |num, i| {
-            const diff: i32 = target - num;
+            const diff = target - num;
 
             if (map.contains(diff)) {
-                result[0] = map.get(diff).?;
-                result[1] = @intCast(i);
-                return result;
+                return [2]u16{ map.get(diff).?, @intCast(i) };
+            } else {
+                map.put(num, @intCast(i)) catch unreachable;
             }
-
-            map.put(num, @intCast(i)) catch unreachable;
         }
 
-        return result;
+        return [2]u16{ 0, 0 };
     }
 };
 

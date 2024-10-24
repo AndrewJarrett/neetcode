@@ -20,14 +20,27 @@ const Pair = struct {
     frequency: u16,
 
     pub fn format(self: *const Pair, _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        try writer.print("{{ num = {d}; frequency = {d} }}\n", .{ self.num, self.frequency });
+        try writer.print("{{ num = {d}; frequency = {d} }}", .{ self.num, self.frequency });
     }
 
     // Use the value of the HashMap entry (which is the count of total
     // times number occurs) and return the std.math.Order of the left
     // and right values.
-    fn compareValue(self: Pair) usize {
-        return self.frequency;
+    fn compareTo(self: *Pair, other: *Pair) Order {
+        std.debug.print("Comparing left ({s}) to right ({s})\n", .{ self, other });
+        if (self.num == other.num) {
+            // In order to find existing keys, we need to match on the pair's num field
+            std.debug.print("left == right\n", .{});
+            return .eq;
+        } else if (self.frequency != other.frequency) {
+            std.debug.print("return std.math.order({d}, {d})\n", .{ self.frequency, other.frequency });
+            // We don't want to consider the same frequency as a full match
+            return std.math.order(self.frequency, other.frequency);
+        } else {
+            std.debug.print("return std.math.order({d}, {d})\n", .{ self.num, other.num });
+            // If the frequencies match, just return the larger num
+            return std.math.order(self.num, other.num);
+        }
     }
 };
 
@@ -57,18 +70,16 @@ pub fn Heap(comptime T: anytype) type {
             }
         }
 
-        pub fn insertItem(self: *Self, item: T) Allocator.Error!Treap.Entry {
-            const itemPtr = try self.allocator.create(T);
-            errdefer self.allocator.destroy(itemPtr);
-            itemPtr.* = item;
-
+        pub fn insertItem(self: *Self, item: *T) Allocator.Error!Treap.Entry {
             var node: Node = undefined;
             const nodePtr = try self.allocator.create(Node);
             errdefer self.allocator.destroy(nodePtr);
             nodePtr.* = node;
-            node.key = itemPtr;
+            node.key = item;
 
-            var treapEntry = self.treap.getEntryFor(itemPtr);
+            var treapEntry = self.treap.getEntryFor(item);
+            std.debug.print("insertItem - *item: {*}\n", .{item});
+            std.debug.print("item: {s}; treapEntry.key: {s}; treapEntry.node: {?}; treapEntry.node*: {*}\n", .{ item, treapEntry.key, treapEntry.node, treapEntry.node });
 
             // Make sure we are adding a new entry
             assert(treapEntry.node == null);
@@ -76,9 +87,26 @@ pub fn Heap(comptime T: anytype) type {
             // Adds the node to the Treap
             treapEntry.set(nodePtr);
 
+            std.debug.print("after set - treapEntry.node: {?}\n", .{treapEntry.node});
+            std.debug.print("after set - treapEntry.node*: {*}\n", .{treapEntry.node});
+
             self.count += 1;
 
             return treapEntry;
+        }
+
+        // Update the item pointed to by the pointer and then
+        // call this method to update the Treap with the new values
+        pub fn updateItem(self: *Self, item: *T) void {
+            var treapEntry = self.treap.getEntryFor(item);
+            const node = treapEntry.node;
+
+            std.debug.print("updateItem - *item: {*}\n", .{item});
+            std.debug.print("item: {s}; treapEntry.key: {s}; treapEntry.node: {?}; treapEntry.node*: {*}\n", .{ item, treapEntry.key, treapEntry.node, treapEntry.node });
+
+            // Make sure the item existed
+            assert(node != null);
+            treapEntry.set(node);
         }
 
         pub fn getFirstK(self: *Self, comptime k: comptime_int) []T {
@@ -112,11 +140,14 @@ pub fn Heap(comptime T: anytype) type {
         // times number occurs) and return the std.math.Order of the left
         // and right values.
         fn compare(left: *T, right: *T) Order {
-            if (!@hasDecl(T, "compareValue")) {
-                @compileError("Expected a type T with a function called 'compareValue'");
+            if (!@hasDecl(T, "compareTo")) {
+                @compileError("Expected a type T with a function called 'compareTo'");
             }
 
-            return std.math.order(left.compareValue(), right.compareValue());
+            std.debug.print("left: {s} ==? right: {s}\n", .{ left, right });
+            //std.debug.print("left.compareTo(right): {s}\n", .{left.compareTo(right)});
+
+            return left.compareTo(right);
         }
     };
 }
@@ -140,33 +171,39 @@ const Solution = struct {
         assert(1 <= nums.len and nums.len <= 10000);
         assert(1 <= k and k <= nums.len);
 
-        var numFrequency = AutoArrayHashMap(i16, u16).init(self.allocator);
+        var numFrequency = AutoArrayHashMap(i16, *Pair).init(self.allocator);
         defer numFrequency.deinit();
 
         // Create a hashmap of the number frequencies
         for (nums) |i| {
             assert(-1000 <= i and i <= 1000);
+            std.debug.print("=======================\ni: {d}\n", .{i});
 
             const getResult = try numFrequency.getOrPut(i);
             if (getResult.found_existing) {
+                std.debug.print("found i: {d}; pair: {s}\n", .{ i, getResult.value_ptr });
                 // Increment the count for this existing number
-                try numFrequency.put(i, getResult.value_ptr.* + 1);
+                getResult.value_ptr.*.frequency += 1;
+
+                try numFrequency.put(i, getResult.value_ptr.*);
+                self.heap.updateItem(getResult.value_ptr.*);
             } else {
                 // Set count for newly found number to 1
-                try numFrequency.put(i, 1);
+                const newPair = Pair{ .num = i, .frequency = 1 };
+                const pairPtr = try self.allocator.create(Pair);
+                errdefer self.allocator.destroy(pairPtr);
+                pairPtr.* = newPair;
+
+                std.debug.print("new i: {d}; new pair: {s}; newpair*: {*}\n", .{ i, newPair, pairPtr });
+                try numFrequency.put(i, pairPtr);
+                _ = try self.heap.insertItem(pairPtr);
             }
         }
 
         // K must be less than the number of distinct elements in nums
         assert(k <= numFrequency.count());
 
-        // Add Treap nodes for each map entry
-        var it = numFrequency.iterator();
-        while (it.next()) |mapEntry| {
-            _ = try self.heap.insertItem(Pair{ .num = mapEntry.key_ptr.*, .frequency = mapEntry.value_ptr.* });
-        }
-
-        var results: [1000]i16 = undefined;
+        var results: [k]i16 = undefined;
         const pairs = self.heap.getFirstK(k);
         for (pairs, 0..k) |pair, i| {
             results[i] = pair.num;

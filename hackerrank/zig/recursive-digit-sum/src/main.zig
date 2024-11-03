@@ -6,6 +6,12 @@ const ArrayList = std.ArrayList;
 pub fn main() !void {
     std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
+    // When running in Linux, the TTY will only allow 4095 bytes to be entered when copying-pasting and will automatically
+    // add a newline and truncate the line.
+    // https://unix.stackexchange.com/questions/643777/is-there-any-limit-on-line-length-when-pasting-to-a-terminal-in-linux
+    //
+    // Probably best to cat a file or input the input through a pipe if you want to input more than 4096 bytes.
+
     // Setup a buffered reader for stdin
     const stdin = std.io.getStdIn();
     var br = std.io.bufferedReader(stdin.reader());
@@ -16,40 +22,22 @@ pub fn main() !void {
     var bw = std.io.bufferedWriter(stdout.writer());
     var writer = bw.writer();
 
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
     var n: []const u8 = undefined;
     var k: usize = undefined;
     var isValidInput = false;
     while (!isValidInput) {
-        //var allChunks: std.BoundedArray(u8, (32 * 1024)) = .{};
-        //var fba = std.heap.FixedBufferAllocator.init(&buffer);
-        //var buffer: [2 * 4096]u8 = undefined;
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        defer arena.deinit();
-
-        //var lineList = std.ArrayList(u8).init(arena.allocator());
-        //while (reader.readUntilDelimiterOrEof(&buffer, '\n') catch {
-        //    std.debug.print("Unable to read your input, please try again:\n", .{});
-        //    continue;
-        //}) |chunk| {
-        //    lineList.appendSlice(chunk) catch unreachable;
-        //}
         const line = reader.readUntilDelimiterOrEofAlloc(arena.allocator(), '\n', 10 * 4 * 1024) catch {
             std.debug.print("Unable to read your input, please try again:\n", .{});
             continue;
-        } orelse {
-            std.debug.print("Exiting.\n", .{});
-            break;
-        };
-        //const line = lineList.toOwnedSlice() catch unreachable;
-        std.debug.print("line: {s}; line.len: {d}\n", .{ line, line.len });
-        //std.debug.print("allChunks: {s}; allChunks.len: {d}\n", .{ allChunks.constSlice(), allChunks.len });
+        } orelse "0 1";
 
-        //var iter = std.mem.tokenize(u8, allChunks.constSlice(), " ");
-        var iter = std.mem.tokenize(u8, line, " ");
-        //var iter = std.mem.tokenize(u8, line.constSlice(), " ");
+        var iter = std.mem.tokenize(u8, line, " \n");
         n = iter.next() orelse "0";
 
-        k = std.fmt.parseInt(usize, iter.next() orelse "0", 0) catch {
+        k = std.fmt.parseInt(usize, iter.next() orelse "1", 10) catch {
             std.debug.print("Unable to parse your input as a number, please try again:\n", .{});
             continue;
         };
@@ -60,8 +48,6 @@ pub fn main() !void {
             std.debug.print("Please enter a positive number of any size.\n", .{});
             continue;
         }
-        std.debug.print("n: {s}; n.len: {d}\n", .{ n, n.len });
-        std.debug.print("k: {d}; 1 <= k <= 100000: {any}\n", .{ k, (1 <= k and k <= 100000) });
 
         if (1 <= k and k <= 100000) {
             isValidInput = true;

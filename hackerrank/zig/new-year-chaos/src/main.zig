@@ -18,9 +18,9 @@ pub fn main() !void {
     var reader = br.reader();
 
     // Setup a buffered writer for stdout
-    //const stdout = std.io.getStdOut();
-    //var bw = std.io.bufferedWriter(stdout.writer());
-    //var writer = bw.writer();
+    const stdout = std.io.getStdOut();
+    var bw = std.io.bufferedWriter(stdout.writer());
+    var writer = bw.writer();
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -67,6 +67,7 @@ pub fn main() !void {
             continue;
         }
 
+        isValidInput = false;
         while (!isValidInput) {
             const q_str = reader.readUntilDelimiterOrEofAlloc(arena.allocator(), '\n', 10 * 4 * 1024) catch {
                 std.debug.print("Unable to read your input, please try again:\n", .{});
@@ -92,15 +93,14 @@ pub fn main() !void {
                 continue;
             }
         }
+
+        assert(1 <= n);
+        assert(n <= 100000);
+        assert(1 <= q.len);
+        assert(q.len <= 100000);
+
+        try writer.print("{s}\n", .{Solution.minimumBribes(q)});
     }
 
-    assert(1 <= n);
-    assert(n <= 100000);
-    assert(1 <= q.len);
-    assert(q.len <= 100000);
-
-    Solution.minimumBribes(q);
-    //try writer.print("{d}\n", .{result});
-
-    //try bw.flush();
+    try bw.flush();
 }

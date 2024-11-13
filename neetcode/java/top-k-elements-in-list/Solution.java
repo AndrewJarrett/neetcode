@@ -10,27 +10,28 @@ public class Solution {
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
         BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(System.out));
 
-        String[] firstMultipleInput = bufferedReader.readLine().replaceAll("\\s+$", "").split(" ");
+        int k = Integer.parseInt(bufferedReader.readLine().replaceAll("\\s+$", ""));
 
-        int n = Integer.parseInt(firstMultipleInput[0]);
+        String[] numsTemp = bufferedReader.readLine().replaceAll("\\s+$", "").split(" ");
 
-        int k = Integer.parseInt(firstMultipleInput[1]);
+        int[] nums = new int[numsTemp.length];
 
-        String[] arrTemp = bufferedReader.readLine().replaceAll("\\s+$", "").split(" ");
-
-        List<Integer> arr = new ArrayList<>();
-
-        for (int i = 0; i < n; i++) {
-            int arrItem = Integer.parseInt(arrTemp[i]);
-            arr.add(arrItem);
+		for (int i = 0; i < nums.length; i++) {
+            int num = Integer.parseInt(numsTemp[i]);
+            nums[i] = num;
         }
 
-        int result = Result.pairs(k, arr);
+        int[] result = Result.topKFrequent(nums, k);
 
-        bufferedWriter.write(String.valueOf(result));
+		for (int j = 0; j < k; j++) {
+			bufferedWriter.write(String.valueOf(result[j]) + " ");
+		}
         bufferedWriter.newLine();
+
+		bufferedWriter.flush();
 
         bufferedReader.close();
         bufferedWriter.close();
     }
+
 }

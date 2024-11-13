@@ -6,21 +6,33 @@ import static java.util.stream.Collectors.toList;
 
 public class Result {
 
-	public static int pairs(int k, List<Integer> arr) {
-        int totalPairs = 0;
-        
-        // The array is a set of unique integers (positive)
-        HashSet<Integer> set = new HashSet<>(arr);
-        
-        for (Integer i : set) {
-            // If the set contains i + k it means there exists a pair between i 
-            // and the sum of i and k. We don't need to worry about double counting
-            if (set.contains(i + k)) {
-                totalPairs++;
-            }
-        }
-        
-        return totalPairs;
+	public static int[] topKFrequent(int[] nums, int k) {
+		int[] results = new int[k];
+
+		Map<Integer, Integer> numFrequency = new HashMap<>();
+		Arrays.stream(nums).forEach((num) -> {
+			numFrequency.put(num, numFrequency.getOrDefault(num, 0) + 1);
+		});
+
+
+		// Setup a max heap
+		PriorityQueue<int[]> maxHeap = new PriorityQueue<int[]>((a, b) -> a[0] - b[0]);
+
+		// Add into the heap using the frequency as the weight
+		for (Map.Entry<Integer, Integer> entry : numFrequency.entrySet()) {
+			maxHeap.offer(new int[] { entry.getValue(), entry.getKey() });
+			// Trim the heap to only have k elements
+			if (maxHeap.size() > k) {
+				maxHeap.poll();
+			}
+		}
+
+        // Walk the heap to get the top k elements
+		for (int i = 0; i < k; i++) {
+			results[i] = maxHeap.poll()[1];
+		}
+
+		return results;
     }
 
 }

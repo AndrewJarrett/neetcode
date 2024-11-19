@@ -1,9 +1,10 @@
 const std = @import("std");
 const assert = std.debug.assert;
-const Order = std.math.Order;
 const AutoArrayHashMap = std.array_hash_map.AutoArrayHashMap;
-const Entry = AutoArrayHashMap(i16, u16).Entry;
+const PriorityQueue = std.PriorityQueue;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
+const Order = std.math.Order;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -14,84 +15,43 @@ pub fn main() !void {
     std.debug.print("Test3... {s}\n", .{if (test3(arena.allocator()) catch false) "passed" else "failed"});
 }
 
-// Used in a Treap to keep track of the frequency and number itself
 const Pair = struct {
     num: i16,
-    freq: u16,
+    frequency: u16,
+
+    // Compare based on the frequency value and return Order.gt
+    // if a < b so that we have a max heap
+    fn compareTo(_: void, a: Pair, b: Pair) Order {
+        return if (a.frequency == b.frequency)
+            Order.eq
+        else if (a.frequency < b.frequency)
+            Order.gt
+        else
+            Order.lt;
+    }
 };
-
-// A Heap structure/wrapper interface that uses a Treap
-// on the backend for managing nodes
-pub fn Heap(comptime T: anytype) type {
-    return struct {
-        const Self = @This();
-
-        const Treap = std.Treap(T, Self.compare);
-        const Node = Treap.Node;
-
-        allocator: Allocator,
-        treap: Treap,
-        count: usize,
-
-        pub fn init(allocator: Allocator) Self {
-            return Self{ .allocator = allocator, .treap = .{}, .count = 0 };
-        }
-
-        pub fn deinit(self: *Self) void {
-            // Free all the remaining nodes
-            var treapIter = self.treap.inorderIterator();
-            while (treapIter.next()) |node| {
-                self.allocator.destroy(node);
-            }
-        }
-
-        pub fn insert(self: *Self, item: T) Allocator.Error!Treap.Entry {
-            var node: Node = undefined;
-            const nodePtr = try self.allocator.create(Node);
-            errdefer self.allocator.destroy(nodePtr);
-            nodePtr.* = node;
-
-            node.key = item;
-            var treapEntry = self.treap.getEntryFor(item);
-
-            // Make sure we are adding a new entry
-            assert(treapEntry.node == null);
-
-            // Adds the node to the Treap
-            treapEntry.set(nodePtr);
-
-            self.count += 1;
-            return treapEntry;
-        }
-
-        // Use the value of the HashMap entry (which is the count of total
-        // times number occurs) and return the std.math.Order of the left
-        // and right values.
-        //fn compare(left: *T, right: *T) Order {
-        fn compare(left: T, right: T) Order {
-            return std.math.order(left.freq, right.freq);
-        }
-    };
-}
 
 const Solution = struct {
     allocator: Allocator,
-    heap: Heap(Pair),
+    results: ArrayList(i16),
 
     pub fn init(allocator: Allocator) Solution {
         return Solution{
             .allocator = allocator,
-            .heap = Heap(Pair).init(allocator),
+            .results = ArrayList(i16).init(allocator),
         };
     }
 
     pub fn deinit(self: *Solution) void {
-        self.heap.deinit();
+        self.results.deinit();
     }
 
-    pub fn topKFrequent(self: *Solution, nums: []const i16, comptime k: u16) Allocator.Error![]const i16 {
+    pub fn topKFrequent(self: *Solution, nums: []const i16, comptime k: u16) ![]i16 {
         assert(1 <= nums.len and nums.len <= 10000);
         assert(1 <= k and k <= nums.len);
+
+        var maxHeap = std.PriorityQueue(Pair, void, Pair.compareTo).init(self.allocator, {});
+        defer maxHeap.deinit();
 
         var numFrequency = AutoArrayHashMap(i16, u16).init(self.allocator);
         defer numFrequency.deinit();
@@ -100,7 +60,8 @@ const Solution = struct {
         for (nums) |i| {
             assert(-1000 <= i and i <= 1000);
 
-            // Add one to existing number or set with a default of 0
+            // Increment the count for this existing number or insert a 0
+            // if the entry doesn't exist
             const gop = try numFrequency.getOrPutValue(i, 0);
             gop.value_ptr.* += 1;
         }
@@ -108,30 +69,21 @@ const Solution = struct {
         // K must be less than the number of distinct elements in nums
         assert(k <= numFrequency.count());
 
-        // Put the pairs into the heap
+        // Add all entries into a max heap
         var it = numFrequency.iterator();
         while (it.next()) |entry| {
-            _ = try self.heap.insert(.{ .num = entry.key_ptr.*, .freq = entry.value_ptr.* });
+            try maxHeap.add(.{ .num = entry.key_ptr.*, .frequency = entry.value_ptr.* });
         }
 
-        // Walk the heap in order and return the results
-        var results: [k]i16 = undefined;
+        // Pop off the highest priority until we find k values
         var kCounter: u16 = 0;
-        while (self.heap.treap.getMax()) |node| {
-            assert(kCounter >= 0 and kCounter <= k);
-
-            results[kCounter] = node.key.num;
+        while (maxHeap.removeOrNull()) |pair| {
+            try self.results.append(pair.num);
             kCounter += 1;
-
-            // Remove this node from the Treap and free memory
-            var treapEntry = self.heap.treap.getEntryForExisting(node);
-            defer self.allocator.destroy(node);
-            treapEntry.set(null);
-
-            if (kCounter >= k) break;
+            if (kCounter == k) break;
         }
 
-        return results[0..k];
+        return self.results.items;
     }
 };
 

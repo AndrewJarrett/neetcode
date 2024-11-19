@@ -33,19 +33,22 @@ const Pair = struct {
 
 const Solution = struct {
     allocator: Allocator,
+    results: ArrayList(i16),
 
     pub fn init(allocator: Allocator) Solution {
         return Solution{
             .allocator = allocator,
+            .results = ArrayList(i16).init(allocator),
         };
     }
 
-    pub fn topKFrequent(self: *Solution, nums: []const i16, k: u16) ![]i16 {
+    pub fn deinit(self: *Solution) void {
+        self.results.deinit();
+    }
+
+    pub fn topKFrequent(self: *Solution, nums: []const i16, comptime k: u16) ![]i16 {
         assert(1 <= nums.len and nums.len <= 10000);
         assert(1 <= k and k <= nums.len);
-
-        var results = ArrayList(i16).init(self.allocator);
-        defer results.deinit();
 
         var maxHeap = std.PriorityQueue(Pair, void, Pair.compareTo).init(self.allocator, {});
         defer maxHeap.deinit();
@@ -75,16 +78,12 @@ const Solution = struct {
         // Pop off the highest priority until we find k values
         var kCounter: u16 = 0;
         while (maxHeap.removeOrNull()) |pair| {
-            try results.append(pair.num);
+            try self.results.append(pair.num);
             kCounter += 1;
             if (kCounter == k) break;
         }
 
-        var buffer: [10000]i16 = undefined;
-        const topK: []i16 = buffer[0..k];
-        @memcpy(topK, results.items);
-
-        return topK;
+        return self.results.items;
     }
 };
 
@@ -102,6 +101,7 @@ test "[1,1,1,2,2,3], k = 2 => [1,2]" {
 
 pub fn test1(allocator: Allocator) !bool {
     var solution = Solution.init(allocator);
+    defer solution.deinit();
 
     const nums: []const i16 = &.{ 1, 2, 2, 3, 3, 3 };
     const k = 2;
@@ -114,24 +114,26 @@ pub fn test1(allocator: Allocator) !bool {
 
 pub fn test2(allocator: Allocator) !bool {
     var solution = Solution.init(allocator);
+    defer solution.deinit();
 
     const nums: []const i16 = &.{ 7, 7 };
     const k = 1;
     const expected: []const i16 = &.{7};
 
     const actual = try solution.topKFrequent(nums, k);
-    try std.testing.expect(std.mem.eql(i16, expected, actual));
+    try std.testing.expectEqualSlices(i16, expected, actual);
     return true;
 }
 
 pub fn test3(allocator: Allocator) !bool {
     var solution = Solution.init(allocator);
+    defer solution.deinit();
 
     const nums: []const i16 = &.{ 1, 1, 1, 2, 2, 3 };
     const k = 2;
     const expected: []const i16 = &.{ 1, 2 };
 
     const actual = try solution.topKFrequent(nums, k);
-    try std.testing.expect(std.mem.eql(i16, expected, actual));
+    try std.testing.expectEqualSlices(i16, expected, actual);
     return true;
 }

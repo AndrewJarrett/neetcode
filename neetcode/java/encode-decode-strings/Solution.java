@@ -12,15 +12,13 @@ public class Solution {
 
         List<String> strs = Arrays.asList(bufferedReader.readLine().replaceAll("\\s+$", "").split(" "));
 
-        String encoded = Result.encode(strs);
+		Result res = new Result();
+        String encoded = res.encode(strs);
 		bufferedWriter.write("Encoded: " + encoded);
         bufferedWriter.newLine();
 
-		List<String> decoded = Result.decode(encoded);
-		bufferedWriter.write("Decoded: ");
-		for (String s : decoded) {
-			bufferedWriter.write(s + " ");
-		}
+		List<String> decoded = res.decode(encoded);
+		bufferedWriter.write("Decoded: " + decoded.toString());
         bufferedWriter.newLine();
 
 		// Test that original list and the decoded list are the same
